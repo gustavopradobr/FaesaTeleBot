@@ -5,7 +5,7 @@ const TeachableMachine = require("@sashido/teachablemachine-node");
 const fs = require("fs");
 var jokesJson = require('./piadas/trocadilhos.json');
 const model = new TeachableMachine({ modelUrl: "http://localhost:3000/model/" });
-const IMAGES_DIR = "./runtime/images";
+const IMAGES_DIR = "./images";
 const LOCALHOST_PORT = 3000;
 const LOCALHOST_PATH = `http://localhost:${LOCALHOST_PORT}/`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -103,7 +103,7 @@ function createDirectory(dir) {
 }
 
 function testClassifyImage() {
-        const imgTest = "runtime/images/file_0.jpg";
+        const imgTest = "images/file_0.jpg";
         const imgFullPath = "http://localhost:3000/" + imgTest;
         classifyImage(imgFullPath);
 }
