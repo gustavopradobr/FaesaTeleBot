@@ -9,24 +9,59 @@ const IMAGES_DIR = "./images";
 const LOCALHOST_PORT = 3000;
 const LOCALHOST_PATH = `http://localhost:${LOCALHOST_PORT}/`;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-//const ONLINE_MODEL_URL = "https://teachablemachine.withgoogle.com/models/Tq4-y4WnG/";
-//start localhost
-server.startServer(LOCALHOST_PORT).then(onServerStarted);
 
+
+//---------------------------------------------------------
+//-------- Inicia Localhost -------------------------------
+//---------------------------------------------------------
+
+server.startServer(LOCALHOST_PORT).then(onServerStarted);
 function onServerStarted() {
-        //testClassifyImage();
+        //metodo disparado ao localhost ser inicializado
+        //não faça nada por enquanto
 }
 
-//Bot
+
+//---------------------------------------------------------
+//-------- Atributos do Bot -------------------------------
+//---------------------------------------------------------
+
 const telegramToken = process.env.TELEGRAM_API_KEY;
 const bot = new TelegramBot(telegramToken, { polling: true });
 var chatId;
+var botEmAndamento = false;
+
+
+//---------------------------------------------------------
+//-------- Configura os comandos --------------------------
+//---------------------------------------------------------
+
+var commands = [
+        { command: "/classificar", description: "Classificar imagem" },
+        { command: "/piada", description: "Me conte uma piada" },
+        { command: "/presente", description: "Quero um presente" }
+];
+//bot.deleteMyCommands(); //utilize para limpar os comandos
+bot.setMyCommands(commands);
+
+
+//---------------------------------------------------------
+//-------- Configura evento de mensagem recebida ----------
+//---------------------------------------------------------
 
 bot.on('message', async (msg) => {
         chatId = msg.chat.id;
         const messageText = msg.text;
 
+        if (botEmAndamento) //ignora e deleta a mensagem se estiver processando algo
+        {
+                bot.deleteMessage(chatId, msg.message_id);
+                return;
+        }
+
         if (msg.photo) {
+                botEmAndamento = true;
+
                 bot.sendMessage(chatId, "Processando imagem...");
 
                 createDirectory(IMAGES_DIR); //cria diretório de imagens se ainda não existe
@@ -40,6 +75,7 @@ bot.on('message', async (msg) => {
                 bot.sendMessage(chatId, "Envie uma imagem para que eu possa classificar.");
         }
         else if (messageText === '/piada') {
+                botEmAndamento = true;
                 enviarPiada();
         }
         else if (messageText === '/presente') {
@@ -51,6 +87,11 @@ bot.on('message', async (msg) => {
 
 });
 
+
+//---------------------------------------------------------
+//-------- Trata foto recebida pelo usuário ---------------
+//---------------------------------------------------------
+
 async function getUploadedPhoto(imgPath, chatId) {
         //1- Envia a mesma imagem de volta usando o arquivo salvo localmente
         //console.log(imgPath);
@@ -61,21 +102,26 @@ async function getUploadedPhoto(imgPath, chatId) {
         };
         bot.sendPhoto(chatId, stream, {}, fileOptions).then((message) => {
                 //console.log(message);
+                //2- Envia a foto para análise no modelo de IA        
+                const imgFullPath = LOCALHOST_PATH + stream.path;
+                console.log("Image full path: " + imgFullPath);
+                classifyImage(imgFullPath);
         });
-        //2- Envia a foto para análise no modelo de IA        
-        const imgFullPath = LOCALHOST_PATH + stream.path;
-        console.log("Image full path: " + imgFullPath);
-        classifyImage(imgFullPath);
 }
+
+
+//---------------------------------------------------------
+//-------- Classifica imagem utilizando modelo ------------
+//---------------------------------------------------------
 
 function classifyImage(imgUrl) {
         model.classify({
                 imageUrl: imgUrl,
         }).then((predictions) => {
                 onImagePredictionCompleted(predictions);
-
         }).catch((e) => {
                 console.log("ERROR", e);
+                botEmAndamento = false;
         });
 }
 
@@ -83,7 +129,7 @@ function onImagePredictionCompleted(predictions) {
         console.log("Predictions:", predictions);
         var mensagem = getTextFromPredictions(predictions);
         console.log(mensagem);
-        bot.sendMessage(chatId, mensagem);
+        bot.sendMessage(chatId, mensagem).then(() => { botEmAndamento = false; });
 }
 
 function getTextFromPredictions(predictions) {
@@ -96,6 +142,33 @@ function getTextFromPredictions(predictions) {
         return text;
 }
 
+
+//---------------------------------------------------------
+//-------- Gera piada aleatória ---------------------------
+//---------------------------------------------------------
+
+async function enviarPiada() {
+        piadaObject = getRandomJoke();
+        bot.sendMessage(chatId, piadaObject.pergunta);
+        await sleep(1000);
+        bot.sendMessage(chatId, "...");
+        await sleep(piadaObject.pergunta.length * 80);
+        bot.sendMessage(chatId, piadaObject.resposta).then(() => { botEmAndamento = false; });
+}
+
+function getRandomJoke() {
+        const values = Object.values(jokesJson);
+        const randIndex = Math.floor(Math.random() * values.length)
+        const randomValue = values[randIndex];
+        console.log(randomValue);
+        return randomValue;
+}
+
+
+//---------------------------------------------------------
+//-------- Utilidades -------------------------------------
+//---------------------------------------------------------
+
 function createDirectory(dir) {
         if (!fs.existsSync(dir)) {
                 fs.mkdirSync(dir);
@@ -106,21 +179,4 @@ function testClassifyImage() {
         const imgTest = "images/file_0.jpg";
         const imgFullPath = "http://localhost:3000/" + imgTest;
         classifyImage(imgFullPath);
-}
-
-async function enviarPiada(){
-        piadaObject = getRandomJoke();
-        bot.sendMessage(chatId, piadaObject.pergunta);
-        await sleep(1000);
-        bot.sendMessage(chatId, "...");
-        await sleep(piadaObject.pergunta.length * 80);
-        bot.sendMessage(chatId, piadaObject.resposta);
-}
-
-function getRandomJoke() {
-        const values = Object.values(jokesJson);
-        const randIndex = Math.floor(Math.random() * values.length)
-        const randomValue = values[randIndex];
-        console.log(randomValue);
-        return randomValue;
 }
