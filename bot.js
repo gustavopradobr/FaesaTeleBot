@@ -28,9 +28,7 @@ function onServerStarted() {
 
 const telegramToken = process.env.TELEGRAM_API_KEY;
 const bot = new TelegramBot(telegramToken, { polling: true });
-
-var botEmAndamento = false;
-
+var activeChatIdsList = [""];
 
 //---------------------------------------------------------
 //-------- Configura os comandos --------------------------
@@ -53,14 +51,14 @@ bot.on('message', async (msg) => {
         const chatId = msg.chat.id;
         const messageText = msg.text;
 
-        if (botEmAndamento) //ignora e deleta a mensagem se estiver processando algo
+        if (activeChatIdsList.includes(chatId)) //ignora e deleta a mensagem se estiver processando algo
         {
                 bot.deleteMessage(chatId, msg.message_id);
                 return;
         }
 
         if (msg.photo) {
-                botEmAndamento = true;
+                activeChatIdsList.push(chatId);
 
                 bot.sendMessage(chatId, "Processando imagem...");
 
@@ -75,7 +73,8 @@ bot.on('message', async (msg) => {
                 bot.sendMessage(chatId, "Envie uma imagem para que eu possa classificar.");
         }
         else if (messageText === '/piada') {
-                botEmAndamento = true;
+                activeChatIdsList.push(chatId);
+
                 enviarPiada(chatId);
         }
         else if (messageText === '/presente') {
@@ -121,7 +120,7 @@ function classifyImage(chatId, imgUrl) {
                 onImagePredictionCompleted(chatId, predictions);
         }).catch((e) => {
                 console.log("ERROR", e);
-                botEmAndamento = false;
+                removeChatId(chatId);
         });
 }
 
@@ -129,7 +128,7 @@ function onImagePredictionCompleted(chatId, predictions) {
         console.log("Predictions:", predictions);
         var mensagem = getTextFromPredictions(predictions);
         console.log(mensagem);
-        bot.sendMessage(chatId, mensagem).then(() => { botEmAndamento = false; });
+        bot.sendMessage(chatId, mensagem).then(() => { removeChatId(chatId); });
 }
 
 function getTextFromPredictions(predictions) {
@@ -153,7 +152,7 @@ async function enviarPiada(chatId) {
         await sleep(1000);
         bot.sendMessage(chatId, "...");
         await sleep(piadaObject.pergunta.length * 80);
-        bot.sendMessage(chatId, piadaObject.resposta).then(() => { botEmAndamento = false; });
+        bot.sendMessage(chatId, piadaObject.resposta).then(() => { removeChatId(chatId); });
 }
 
 function getRandomJoke() {
@@ -168,6 +167,12 @@ function getRandomJoke() {
 //---------------------------------------------------------
 //-------- Utilidades -------------------------------------
 //---------------------------------------------------------
+function removeChatId(endedChatId){
+        const indexOf = activeChatIdsList.indexOf(endedChatId);
+        if(indexOf < 0) return;
+
+        activeChatIdsList.splice(indexOf, 1);
+}
 
 function createDirectory(dir) {
         if (!fs.existsSync(dir)) {
