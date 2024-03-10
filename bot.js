@@ -28,7 +28,7 @@ function onServerStarted() {
 
 const telegramToken = process.env.TELEGRAM_API_KEY;
 const bot = new TelegramBot(telegramToken, { polling: true });
-var chatId;
+
 var botEmAndamento = false;
 
 
@@ -50,7 +50,7 @@ bot.setMyCommands(commands);
 //---------------------------------------------------------
 
 bot.on('message', async (msg) => {
-        chatId = msg.chat.id;
+        const chatId = msg.chat.id;
         const messageText = msg.text;
 
         if (botEmAndamento) //ignora e deleta a mensagem se estiver processando algo
@@ -76,7 +76,7 @@ bot.on('message', async (msg) => {
         }
         else if (messageText === '/piada') {
                 botEmAndamento = true;
-                enviarPiada();
+                enviarPiada(chatId);
         }
         else if (messageText === '/presente') {
                 bot.sendMessage(chatId, "Jogue este incrível jogo e seja feliz: https://play.google.com/store/apps/details?id=com.pradostudios.toonchase&hl=pt_BR&gl=US");
@@ -105,7 +105,7 @@ async function getUploadedPhoto(imgPath, chatId) {
                 //2- Envia a foto para análise no modelo de IA        
                 const imgFullPath = LOCALHOST_PATH + stream.path;
                 console.log("Image full path: " + imgFullPath);
-                classifyImage(imgFullPath);
+                classifyImage(chatId, imgFullPath);
         });
 }
 
@@ -114,18 +114,18 @@ async function getUploadedPhoto(imgPath, chatId) {
 //-------- Classifica imagem utilizando modelo ------------
 //---------------------------------------------------------
 
-function classifyImage(imgUrl) {
+function classifyImage(chatId, imgUrl) {
         model.classify({
                 imageUrl: imgUrl,
         }).then((predictions) => {
-                onImagePredictionCompleted(predictions);
+                onImagePredictionCompleted(chatId, predictions);
         }).catch((e) => {
                 console.log("ERROR", e);
                 botEmAndamento = false;
         });
 }
 
-function onImagePredictionCompleted(predictions) {
+function onImagePredictionCompleted(chatId, predictions) {
         console.log("Predictions:", predictions);
         var mensagem = getTextFromPredictions(predictions);
         console.log(mensagem);
@@ -147,7 +147,7 @@ function getTextFromPredictions(predictions) {
 //-------- Gera piada aleatória ---------------------------
 //---------------------------------------------------------
 
-async function enviarPiada() {
+async function enviarPiada(chatId) {
         piadaObject = getRandomJoke();
         bot.sendMessage(chatId, piadaObject.pergunta);
         await sleep(1000);
