@@ -147,7 +147,7 @@ function getTextFromPredictions(predictions) {
 //---------------------------------------------------------
 
 async function enviarPiada(chatId) {
-        piadaObject = getRandomJoke();
+        var piadaObject = getRandomJoke();
         bot.sendMessage(chatId, piadaObject.pergunta);
         await sleep(1000);
         bot.sendMessage(chatId, "...");
